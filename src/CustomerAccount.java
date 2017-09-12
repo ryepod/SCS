@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.regex.Pattern;
 
 /**
  * Implements business logic/policies for the creation, authentication and deletion of customer accounts
@@ -33,6 +34,7 @@ import java.util.ArrayList;
 public class CustomerAccount {
 	
 	private static ArrayList<CustomerAccount> accountList = new ArrayList<CustomerAccount>();
+	private static final int FAILED_AUTHENTICATION_LIMIT = 5;
 
 	private String accountName;	//This user's chosen account name
 	private String password;		//This user's chosen password
@@ -83,8 +85,19 @@ public class CustomerAccount {
 	 * they may be invalid or even empty strings) when they arrive here.
 	 */
 	public static CustomerAccount createNewAccount(String accountName, String password1, String password2) throws AccountException {
-	
-		//TODO:  Implement business policies defined in Product Backlog for new accounts
+		// Iterate through the list, checking if the account name exist. If it does, then we need to throw an error
+		if(accountList.stream().filter(account -> account.accountName.equals(accountName)).findAny().isPresent()) {
+			throw new AccountException(accountName + " already exists!");
+		}
+		
+		// Ripped off StackOverflow. This "simple" regex simply checks if the string is an email
+		if(!Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,4}").matcher(accountName).matches()) {
+			throw new AccountException(accountName + " is not an email address!");
+		}
+		
+		if(!password1.equals(password2)) {
+			throw new AccountException("Passwords do not match! Try again.");
+		}
 		
 		//If the user-supplied parameters are acceptable to the policies, create and record the new account
 		try {
@@ -127,13 +140,21 @@ public class CustomerAccount {
 	 * Design question for students:  Why is this method static???  Are there alternatives?  
 	 */
 	public static CustomerAccount authenticateCredentials(String accountName, String password) throws AccountException {
+		CustomerAccount account = accountList
+				.stream() // Simply "filter" the list searching for matching account names
+				.filter(acnt -> acnt.accountName.equals(accountName))
+				.findAny() // Since there was no account we can simply just say the account does not exist
+				.orElseThrow(() -> new AccountException("Account " + accountName + " does not exist!"));
 		
-		//TODO:  Implement credential authentication
-		
-		//TODO:  Implement business policies defined in Product Backlog for locking an account after
-		//repeated unsuccessful login attempts.
-		throw(new AccountException("authenticateCredentials not implemented"));
-		
+		if(account.password.equals(password)) {
+			return account;
+		} else if(account.nSequentialFailedAuthenticationAttempts == FAILED_AUTHENTICATION_LIMIT) {
+			account.isLocked = true;
+			throw new AccountException("Too many failed attempts! Your account has been locked!");
+		} else { // Password did not match so account as failed attempt
+			account.nSequentialFailedAuthenticationAttempts++;
+			throw new AccountException("Your password did not match! Try again.");
+		}
 	} //authenticateAccount
 	
 	
@@ -163,8 +184,11 @@ public class CustomerAccount {
 	 */
 	public void delete() throws AccountException {
 		Console.println("CustomerAccount.delete()");
-		//TODO:  Remove this account from the list of all accounts
-		throw(new AccountException("delete not implemented"));
+		
+		// The simple Java 8 way of removing an element from the list
+		// Basically iterates all elements in the list, removing them if they match the predicate
+		// Since only one element *should* be in the list matching the account name, simply delete that.
+		accountList.removeIf(account -> account.accountName.equals(accountName));
 	} //delete
 	
 	
