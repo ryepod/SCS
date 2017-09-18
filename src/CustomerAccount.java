@@ -1,4 +1,8 @@
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -33,7 +37,7 @@ import java.util.regex.Pattern;
  */
 public class CustomerAccount {
 	
-	private static ArrayList<CustomerAccount> accountList = new ArrayList<CustomerAccount>();
+	private static final Map<String, CustomerAccount> ACCOUNT_LIST = new HashMap<>();
 	private static final int FAILED_AUTHENTICATION_LIMIT = 5;
 
 	private String accountName;	//This user's chosen account name
@@ -85,8 +89,7 @@ public class CustomerAccount {
 	 * they may be invalid or even empty strings) when they arrive here.
 	 */
 	public static CustomerAccount createNewAccount(String accountName, String password1, String password2) throws AccountException {
-		// Iterate through the list, checking if the account name exist. If it does, then we need to throw an error
-		if(accountList.stream().filter(account -> account.accountName.equals(accountName)).findAny().isPresent()) {
+		if(ACCOUNT_LIST.containsKey(accountName)) { // Checks if account exists
 			throw new AccountException(accountName + " already exists!");
 		}
 		
@@ -104,7 +107,7 @@ public class CustomerAccount {
 		
 			//Create the account object and record a reference to it in the accountList
 			CustomerAccount newAccount = new CustomerAccount(accountName, password1);
-			accountList.add(newAccount);
+			ACCOUNT_LIST.put(accountName, newAccount);
 		
 			//Return reference to the new account object
 			Console.println("Created CustomerAccount for "+accountName);
@@ -140,11 +143,10 @@ public class CustomerAccount {
 	 * Design question for students:  Why is this method static???  Are there alternatives?  
 	 */
 	public static CustomerAccount authenticateCredentials(String accountName, String password) throws AccountException {
-		CustomerAccount account = accountList
-				.stream() // Simply "filter" the list searching for matching account names
-				.filter(acnt -> acnt.accountName.equals(accountName))
-				.findAny() // Since there was no account we can simply just say the account does not exist
-				.orElseThrow(() -> new AccountException("Account " + accountName + " does not exist!"));
+		CustomerAccount account = ACCOUNT_LIST.get(accountName);
+		if(account == null) { // If accountName is not in the system
+			throw new AccountException("Account " + accountName + " does not exist!");
+		}
 		
 		if(account.password.equals(password)) {
 			return account;
@@ -168,9 +170,13 @@ public class CustomerAccount {
 	 * accessible to a customer.
 	 */
 	public static void reset(String accountName) throws AccountException {
-		//TODO:  Implement this someday when we're ready to unlock accounts.  This might become an extra credit
-		//assignment.  Until then, it's just skeletal place-holder code, and not used in CS271.
-		throw(new AccountException("reset not implemented"));				//Functionality not implemented
+		CustomerAccount account = ACCOUNT_LIST.get(accountName);
+		if(account == null) { // The account does not exist in the system
+			throw new AccountException(accountName + " does not exist!");
+		}
+		
+		account.isLocked = false;
+		account.nSequentialFailedAuthenticationAttempts = 0;
 	} //reset
 	
 	/**
@@ -185,10 +191,7 @@ public class CustomerAccount {
 	public void delete() throws AccountException {
 		Console.println("CustomerAccount.delete()");
 		
-		// The simple Java 8 way of removing an element from the list
-		// Basically iterates all elements in the list, removing them if they match the predicate
-		// Since only one element *should* be in the list matching the account name, simply delete that.
-		accountList.removeIf(account -> account.accountName.equals(accountName));
+		ACCOUNT_LIST.remove(accountName);
 	} //delete
 	
 	
@@ -205,7 +208,7 @@ public class CustomerAccount {
 	 * Deletes all existing customer accounts
 	 */
 	public static void deleteAllAccounts() {
-		accountList = new ArrayList<CustomerAccount>();
+		ACCOUNT_LIST.clear();
 	}
 	
 }
